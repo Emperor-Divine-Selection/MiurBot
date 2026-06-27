@@ -1,11 +1,11 @@
 use crate::{config, service::chat};
 use axum::{
-    Json, Router,
+    Extension, Json, Router,
     routing::{get, post},
 };
+use sea_orm::DatabaseConnection;
 use serde::Deserialize;
 
-// 一个简单的处理函数
 async fn hello_world() -> &'static str {
     "Hello, World!"
 }
@@ -15,18 +15,22 @@ struct ChatRequest {
     message: String,
 }
 
-async fn chat_handler(Json(request): Json<ChatRequest>) -> String {
-    match chat::handle_chat(request.message).await {
+async fn chat_handler(
+    Extension(db): Extension<DatabaseConnection>,
+    Json(request): Json<ChatRequest>,
+) -> String {
+    match chat::handle_chat(&db, request.message).await {
         Ok(reply) => reply,
         Err(e) => format!("错误：{}", e),
     }
 }
 
-// 启动服务器
-pub async fn start() {
+pub async fn start(db: DatabaseConnection) {
     let app = Router::new()
         .route("/", get(hello_world))
-        .route("/chat", post(chat_handler));
+        .route("/chat", post(chat_handler))
+        .layer(Extension(db));
+
     let addr = format!(
         "{}:{}",
         config::CONFIG.server_host,

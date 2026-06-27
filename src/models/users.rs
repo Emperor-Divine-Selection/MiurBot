@@ -9,7 +9,6 @@ pub struct Model {
     #[sea_orm(unique)]
     pub username: String,
     pub password_hash: String,
-    #[sea_orm(default_value = "CURRENT_TIMESTAMP")]
     pub created_at: DateTime,
 }
 impl ActiveModelBehavior for ActiveModel {}

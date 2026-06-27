@@ -13,7 +13,7 @@ async fn main() {
         config::CONFIG.server_port,
         config::CONFIG.jwt_secret,
     );
-    let _db = store::init().await.expect("链接数据库失败了");
+    let db = store::init().await.expect("链接数据库失败了");
     println!("连接数据库成功");
-    adapter::axum::start().await;
+    adapter::axum::start(db).await;
 }

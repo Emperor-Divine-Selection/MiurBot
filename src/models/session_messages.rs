@@ -12,7 +12,6 @@ pub struct Model {
     pub session: HasOne<super::sessions::Entity>,
     pub role: String,
     pub content: String,
-    #[sea_orm(default_value = "CURRENT_TIMESTAMP")]
     pub created_at: DateTime,
 }
 

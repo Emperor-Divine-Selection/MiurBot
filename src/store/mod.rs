@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::sync::OnceLock;
 
 pub mod provider;
+pub mod session;
 pub mod user;
 
 pub static PROVIDERS: OnceLock<HashMap<String, provider::LlmConfig>> = OnceLock::new();

@@ -12,7 +12,6 @@ pub struct Model {
     pub api_key: String,
     #[sea_orm(default_value = "1")]
     pub is_active: bool,
-    #[sea_orm(default_value = "CURRENT_TIMESTAMP")]
     pub created_at: DateTime,
     #[sea_orm(has_many)]
     pub llm_configs: HasMany<super::providers_llm::Entity>,

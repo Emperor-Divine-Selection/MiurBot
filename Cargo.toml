@@ -15,3 +15,4 @@ dotenvy = { version = "0.15" }
 config = { version = "0.15" }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3" }
+chrono = "0.4.45"

@@ -11,9 +11,7 @@ pub struct Model {
     #[sea_orm(belongs_to, from = "user_id", to = "id")]
     pub user: HasOne<super::users::Entity>,
     pub summary: Option<String>,
-    #[sea_orm(default_value = "CURRENT_TIMESTAMP")]
     pub created_at: DateTime,
-    #[sea_orm(default_value = "CURRENT_TIMESTAMP")]
     pub updated_at: DateTime,
 }
 impl ActiveModelBehavior for ActiveModel {}
