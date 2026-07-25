@@ -18,15 +18,15 @@ MiurBot 不只是「聊天机器人」。它是一个**能自己决定存什么�
 
 ## 技术栈
 
-| 层 | 选型 | 理由 |
-|:---|------|------|
-| 前端 | Nuxt 3 | SPA/SSR 双模，已有经验 |
-| 后端 | **Rust** + axum | 零成本抽象 + 内存安全，TCP 嗅探器后接 MiurBot |
-| ORM | SeaORM | 异步优先，对标 GORM 体验，纯 Rust |
-| 数据库 | SQLite (rusqlite / libsql) | 单用户零部署，CGO-free，可迁 libsql-server |
-| AI | OpenAI API（async） | 流式输出 + JSON mode，reqwest 异步调用 |
-| 记忆 | 自建存储 + AI 主动管理 | 非向量数据库路线 |
-| 定时任务 | tokio-cron-scheduler | Rust 原生 cron，Go robfig/cron 等价物 |
+| 层       | 选型                       | 理由                                          |
+| :------- | -------------------------- | --------------------------------------------- |
+| 前端     | Nuxt 3                     | SPA/SSR 双模，已有经验                        |
+| 后端     | **Rust** + axum            | 零成本抽象 + 内存安全，TCP 嗅探器后接 MiurBot |
+| ORM      | SeaORM                     | 异步优先，对标 GORM 体验，纯 Rust             |
+| 数据库   | SQLite (rusqlite / libsql) | 单用户零部署，CGO-free，可迁 libsql-server    |
+| AI       | OpenAI API（async）        | 流式输出 + JSON mode，reqwest 异步调用        |
+| 记忆     | 自建存储 + AI 主动管理     | 非向量数据库路线                              |
+| 定时任务 | tokio-cron-scheduler       | Rust 原生 cron，Go robfig/cron 等价物         |
 
 ### 为什么 Rust
 
@@ -49,6 +49,7 @@ MiurBot 不只是「聊天机器人」。它是一个**能自己决定存什么�
 ```
 
 **接入层抽象后的通用数据流：**
+
 ```
 [消息源] → adapter → service.chat(Message) → [Message] → store
   ↑—流式响应—|               |—SSE/WebSocket/Polling → 前端
@@ -79,6 +80,7 @@ MiurBot/
 ```
 
 **分层原则：**
+
 - 从上到下单向依赖：`config → models → store → service → adapter | worker`
 - `adapter` 和 `worker` 平级，均依赖 `service`，互不依赖
 - `config` 全项目可见，无依赖
@@ -88,15 +90,15 @@ MiurBot/
 
 ### Rust 分层对照
 
-| Go 原版 | Rust 版 | 说明 |
-|---------|---------|------|
-| `config/` | `config/` | 不变，Rust 用 `dotenvy` + `config` crate |
-| `models/` | `models/` | SeaORM `Entity` + `DeriveEntityModel` 宏 |
-| `store/` | `store/` | SeaORM `Select/Insert/Update/Delete` |
-| `service/` | `service/` | 纯 async fn，tokio runtime |
-| `adapter/` | `adapter/` | axum `Router` + SSE `Sse` |
-| `worker/` | `worker/` | `tokio-cron-scheduler` |
-| `middleware/` | `middleware/` | `tower::ServiceBuilder` + JWT extractor |
+| Go 原版       | Rust 版       | 说明                                     |
+| ------------- | ------------- | ---------------------------------------- |
+| `config/`     | `config/`     | 不变，Rust 用 `dotenvy` + `config` crate |
+| `models/`     | `models/`     | SeaORM `Entity` + `DeriveEntityModel` 宏 |
+| `store/`      | `store/`      | SeaORM `Select/Insert/Update/Delete`     |
+| `service/`    | `service/`    | 纯 async fn，tokio runtime               |
+| `adapter/`    | `adapter/`    | axum `Router` + SSE `Sse`                |
+| `worker/`     | `worker/`     | `tokio-cron-scheduler`                   |
+| `middleware/` | `middleware/` | `tower::ServiceBuilder` + JWT extractor  |
 
 ---
 
@@ -106,24 +108,25 @@ MiurBot/
 
 ### 表清单
 
-| # | 表 | 阶段 | 说明 |
-|:--:|------|:--:|------|
-| 1 | **users** | Phase 1 | 登录鉴权，JWT 签发依据 |
-| 2 | **sessions** | Phase 1 | 会话记录 |
-| 3 | **session_messages** | Phase 1 | 消息明细，sessions 子表 |
-| 4 | **providers** | Phase 1 | API 密钥+类型（父表） |
-| 4a | **providers_llm** | Phase 1 | 对话模型参数（子表） |
-| 4b | **providers_image** | 后续 | 文生图参数（子表） |
-| 4c | **providers_tts** | 后续 | 语音合成参数（子表） |
-| 4d | **providers_embedding** | Phase 2 | 向量化参数（子表） |
-| 5 | **memories** | Phase 2 | AI 长记忆（事实颗粒，带 decay_rate + embedding） |
-| 6 | **user_meta** | Phase 3 | AI 对用户的元认知画像（不衰减，常驻加载） |
-| 7 | **ai_tables** | Phase 3 | AI 自建表登记（元认知索引） |
-| 7a | **ai_identity** | Phase 3 | AI 自我认知（预设核心，不可删） |
+|  #  | 表                      |  阶段   | 说明                                             |
+| :-: | ----------------------- | :-----: | ------------------------------------------------ |
+|  1  | **users**               | Phase 1 | 登录鉴权，JWT 签发依据                           |
+|  2  | **sessions**            | Phase 1 | 会话记录                                         |
+|  3  | **session_messages**    | Phase 1 | 消息明细，sessions 子表                          |
+|  4  | **providers**           | Phase 1 | API 密钥+类型（父表）                            |
+| 4a  | **providers_llm**       | Phase 1 | 对话模型参数（子表）                             |
+| 4b  | **providers_image**     |  后续   | 文生图参数（子表）                               |
+| 4c  | **providers_tts**       |  后续   | 语音合成参数（子表）                             |
+| 4d  | **providers_embedding** | Phase 2 | 向量化参数（子表）                               |
+|  5  | **memories**            | Phase 2 | AI 长记忆（事实颗粒，带 decay_rate + embedding） |
+|  6  | **user_meta**           | Phase 3 | AI 对用户的元认知画像（不衰减，常驻加载）        |
+|  7  | **ai_tables**           | Phase 3 | AI 自建表登记（元认知索引）                      |
+| 7a  | **ai_identity**         | Phase 3 | AI 自我认知（预设核心，不可删）                  |
 
 ### DDL（SQLite，SeaORM migration 管理）
 
 `users`：
+
 ```sql
 CREATE TABLE users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -134,6 +137,7 @@ CREATE TABLE users (
 ```
 
 `sessions`：
+
 ```sql
 CREATE TABLE sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -145,6 +149,7 @@ CREATE TABLE sessions (
 ```
 
 `session_messages`：
+
 ```sql
 CREATE TABLE session_messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -156,6 +161,7 @@ CREATE TABLE session_messages (
 ```
 
 `providers`（父表，AI 禁区）：
+
 ```sql
 CREATE TABLE providers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -169,6 +175,7 @@ CREATE TABLE providers (
 ```
 
 `providers_llm`（子表）：
+
 ```sql
 CREATE TABLE providers_llm (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -182,6 +189,7 @@ CREATE TABLE providers_llm (
 `providers_image` / `providers_tts` / `providers_embedding`：DDL 同 Go 版，不变。
 
 `memories`（Phase 2）：
+
 ```sql
 CREATE TABLE memories (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -200,20 +208,20 @@ CREATE TABLE memories (
 
 ### 表访问权限矩阵
 
-| 表 | 查 | 增 | 改 | 删 | 说明 |
-|------|:--:|:--:|:--:|:--:|------|
-| users | ❌ | ❌ | ❌ | ❌ | 禁区 |
-| sessions | ✅ | ❌ | ❌ | ❌ | 只读 |
-| session_messages | ✅ | ❌ | ❌ | ❌ | 只读 |
-| providers | ❌ | ❌ | ❌ | ❌ | **完全不可见** |
-| providers_llm | ❌ | ❌ | ❌ | ❌ | 随父表 |
-| providers_image | ❌ | ❌ | ❌ | ❌ | 随父表 |
-| providers_tts | ❌ | ❌ | ❌ | ❌ | 随父表 |
-| providers_embedding | ❌ | ❌ | ❌ | ❌ | 随父表 |
-| memories | ✅ | ✅ | ✅ | ✅ | AI 全权管理 |
-| user_meta | ✅ | ✅ | ✅ | ❌ | 可查改，不可删 |
-| ai_tables | ✅ | ✅ | ❌ | ❌ | 可登记不可删 |
-| ai_identity | ✅ | ❌ | ✅ | ❌ | 可查可改不可删 |
+| 表                  | 查  | 增  | 改  | 删  | 说明           |
+| ------------------- | :-: | :-: | :-: | :-: | -------------- |
+| users               | ❌  | ❌  | ❌  | ❌  | 禁区           |
+| sessions            | ✅  | ❌  | ❌  | ❌  | 只读           |
+| session_messages    | ✅  | ❌  | ❌  | ❌  | 只读           |
+| providers           | ❌  | ❌  | ❌  | ❌  | **完全不可见** |
+| providers_llm       | ❌  | ❌  | ❌  | ❌  | 随父表         |
+| providers_image     | ❌  | ❌  | ❌  | ❌  | 随父表         |
+| providers_tts       | ❌  | ❌  | ❌  | ❌  | 随父表         |
+| providers_embedding | ❌  | ❌  | ❌  | ❌  | 随父表         |
+| memories            | ✅  | ✅  | ✅  | ✅  | AI 全权管理    |
+| user_meta           | ✅  | ✅  | ✅  | ❌  | 可查改，不可删 |
+| ai_tables           | ✅  | ✅  | ❌  | ❌  | 可登记不可删   |
+| ai_identity         | ✅  | ❌  | ✅  | ❌  | 可查可改不可删 |
 
 ### 表访问控制（Rust 实现）
 
@@ -262,12 +270,12 @@ fn check_table_access(table_name: &str) -> Result<(), String> {
 
 ### 分类衰减速率
 
-| Category | decay_rate | 说明 |
-|----------|-----------|------|
-| 偏好 | 0.98 | 几乎不忘 |
-| 事实 | 0.99 | 基本不忘 |
-| 决策 | 0.95 | 缓慢衰减 |
-| 临时状态 | 0.85 | 一周就淡 |
+| Category | decay_rate | 说明     |
+| -------- | ---------- | -------- |
+| 偏好     | 0.98       | 几乎不忘 |
+| 事实     | 0.99       | 基本不忘 |
+| 决策     | 0.95       | 缓慢衰减 |
+| 临时状态 | 0.85       | 一周就淡 |
 
 ### 上下文加载优先级
 
@@ -289,23 +297,24 @@ fn check_table_access(table_name: &str) -> Result<(), String> {
 
 工具权限收束：不是一把 SQL 打天下，每个工具限定能碰哪些表。
 
-| 阶段 | 工具 | 说明 | 可操作表 |
-|------|------|------|:--:|
-| Phase 1 | `get_time` | 返回当前时间戳 | — |
-| Phase 2 | `remember` | 记住一个长期事实 | `memories` |
-| Phase 2 | `recall` | 搜索相关记忆 | `memories` |
-| Phase 2 | `forget` | 删除一条不再准确的记忆 | `memories` |
-| Phase 3 | `create_table` | 创建新表（强制 `ai_` 前缀） | — |
-| Phase 3 | `insert` | 插入数据（过 `check_table_access`） | 白名单+ai_表 |
-| Phase 3 | `query` | 查询数据（过 `check_table_access`） | 白名单+ai_表 |
-| Phase 3 | `drop_table` | 删除表（只允许 `ai_`，预设核心除外） | ai_表 |
-| Phase 3 | `list_my_tables` | 列出自己建过的表 | `ai_tables` |
+| 阶段    | 工具             | 说明                                 |   可操作表   |
+| ------- | ---------------- | ------------------------------------ | :----------: |
+| Phase 1 | `get_time`       | 返回当前时间戳                       |      —       |
+| Phase 2 | `remember`       | 记住一个长期事实                     |  `memories`  |
+| Phase 2 | `recall`         | 搜索相关记忆                         |  `memories`  |
+| Phase 2 | `forget`         | 删除一条不再准确的记忆               |  `memories`  |
+| Phase 3 | `create_table`   | 创建新表（强制 `ai_` 前缀）          |      —       |
+| Phase 3 | `insert`         | 插入数据（过 `check_table_access`）  | 白名单+ai_表 |
+| Phase 3 | `query`          | 查询数据（过 `check_table_access`）  | 白名单+ai_表 |
+| Phase 3 | `drop_table`     | 删除表（只允许 `ai_`，预设核心除外） |    ai_表     |
+| Phase 3 | `list_my_tables` | 列出自己建过的表                     | `ai_tables`  |
 
 ---
 
 ## 进化路线（五阶段）
 
 ### Phase 1：基础链路 ✅ 2026.06 动手（Rust 重写）
+
 - axum + Nuxt + SQLite 基础链路
 - 流式输出（SSE）+ JWT 登录
 - 建表：users / sessions / session_messages / providers / providers_llm
@@ -314,17 +323,20 @@ fn check_table_access(table_name: &str) -> Result<(), String> {
 - **工具**：`get_time`
 
 ### Phase 2：AI 主动记忆 + 用户元认知
+
 - 新增 `memories` 表
 - `remember` / `recall` / `forget` 工具
 - 分类遗忘曲线 + 记忆巡检 worker
 - embedding 召回（text-embedding-3-small）
 
 ### Phase 3：AI 自管理表结构
+
 - `user_meta` + `ai_tables` + `ai_identity`
 - `create_table` / `insert` / `query` / `drop_table` / `list_my_tables`
 - 所有数据工具强制 `check_table_access`
 
 ### 后续可扩展
+
 - 文件系统操作权限
 - 邮件/日历集成
 - 浏览器自动化
@@ -336,12 +348,12 @@ fn check_table_access(table_name: &str) -> Result<(), String> {
 
 ### 问候时间窗口
 
-| 窗口 | 时间范围 | 触发条件 |
-|------|---------|---------|
-| 早安 | 08:00-09:00（随机） | 今天还没说过话 |
-| 午间 | 12:00-13:00（随机） | 上午没聊过 |
-| 训练前 | 19:00-19:45（随机） | 训练日 |
-| 晚安 | 22:30-23:00（随机） | 太晚还没休息 |
+| 窗口   | 时间范围            | 触发条件       |
+| ------ | ------------------- | -------------- |
+| 早安   | 08:00-09:00（随机） | 今天还没说过话 |
+| 午间   | 12:00-13:00（随机） | 上午没聊过     |
+| 训练前 | 19:00-19:45（随机） | 训练日         |
+| 晚安   | 22:30-23:00（随机） | 太晚还没休息   |
 
 ### workflow
 
@@ -362,6 +374,7 @@ worker 触发（随机时间窗口）
 ## Skill 引擎（程序性记忆系统）
 
 Skill 是 MiurBot 的**程序性记忆**——与 Memory（陈述性记忆）平行。
+
 - **Skill → 文件系统**（`skills/` 目录，不衰减）
 - **Memory → 数据库**（sqlite 表，可查询、可遗忘）
 
@@ -376,11 +389,11 @@ Skill 是 MiurBot 的**程序性记忆**——与 Memory（陈述性记忆）平
 
 ### 实现优先级
 
-| 阶段 | 内容 |
-|------|------|
+| 阶段    | 内容                                       |
+| ------- | ------------------------------------------ |
 | Phase 1 | skills/ 目录 + 冷启动 + system prompt 注入 |
-| Phase 2 | 确定性执行 + AI 主动调用匹配 |
-| Phase 3 | AI 自己写 skill |
+| Phase 2 | 确定性执行 + AI 主动调用匹配               |
+| Phase 3 | AI 自己写 skill                            |
 
 ---
 
@@ -389,6 +402,7 @@ Skill 是 MiurBot 的**程序性记忆**——与 Memory（陈述性记忆）平
 Go → Rust 重写，`cargo run --bin` 直接跑。
 
 ### export_to_hermes — MiurBot → Hermes
+
 ### import_from_hermes — Hermes → MiurBot
 
 安全原则不变：导入只读、导出先备份、没新东西跳过。
@@ -397,11 +411,11 @@ Go → Rust 重写，`cargo run --bin` 直接跑。
 
 ## 能力定级
 
-| 维度 | 定级 | 说明 |
-|---|---|---|
-| 织造学派 | P6 | 独立全栈设计（Nuxt+axum+流式+SSE） |
-| 数据学派 | P6+ | AI 自管理表结构，元认知索引，多层压缩 |
-| 安全学派 | P6 | JWT 鉴权、白名单保护、权限收束 |
+| 维度     | 定级  | 说明                                                 |
+| -------- | ----- | ---------------------------------------------------- |
+| 织造学派 | P6    | 独立全栈设计（Nuxt+axum+流式+SSE）                   |
+| 数据学派 | P6+   | AI 自管理表结构，元认知索引，多层压缩                |
+| 安全学派 | P6    | JWT 鉴权、白名单保护、权限收束                       |
 | 架构学派 | 触 P7 | 六层清晰，进化路线设计，以 Rust 所有权模型防并发 bug |
 
 **综合：P6 扎实，架构触 P7。**
@@ -421,13 +435,46 @@ Go → Rust 重写，`cargo run --bin` 直接跑。
 
 ## 项目状态
 
+### MiurBot 本体
+
 - [x] 架构设计完成（2026.05.12）
 - [x] 七张表设计定稿 + 权限矩阵（2026.05.15）
 - [x] 六层架构 + 接入层抽象（2026.05.16）
 - [x] 五阶段进化路线（2026.05.14）
 - [x] Go → Rust 技术栈迁移决策（2026.06.14）
-- [ ] Phase 1 Rust 版基础链路开发（config 先行）
+- [x] **Phase 1 Rust 版基础链路**（2026.07.24）
+  - [x] 技术栈升级：SeaORM 1.x → 2.0-rc.41，模型全面迁移 `#[sea_orm::model]` 语法
+  - [x] `config/` — 配置层（dotenvy + config crate，LazyLock 全局单例）
+  - [x] `models/` — 5 张表实体（users / sessions / session_messages / providers / providers_llm），含 belongs_to / has_many 外键
+  - [x] `store/` — 数据库初始化 + Schema builder 建表 + provider 缓存（OnceLock）+ 默认用户创建 + session 管理 + 消息 CRUD
+  - [x] `service/chat.rs` — 对话处理：查历史 → 拼上下文 → reqwest 调 DeepSeek API → 返回回复 → 存消息
+  - [x] `adapter/axum.rs` — axum HTTP 服务器，POST /chat 路由，Extension 注入 db
+  - [x] 全链路调通：curl → axum → service → store → DeepSeek → 回复 → 存历史 → 下次携带上下文
+  - [ ] 待完成：流式输出（SSE）、JWT 中间件、摘要压缩（20 轮触发）、CORS
 - [ ] Phase 2 AI 主动记忆
 - [ ] Phase 3 AI 自管理表结构
 
+> 2026.07.24：全链路端到端调通。
 > 几个月打磨，不急。一条一条织。
+
+---
+
+### 前置项目：TCP 端口扫描器（`tcp_sniffer/`）
+
+> 为 MiurBot 积累 Rust 异步实战经验的前置练习项目。
+> 练完 tokio + channel 后直接接 MiurBot 开发，同一套异步心智模型。
+
+**当前进度（2026.07.18）：**
+
+- [x] 项目初始化（`cargo init` + tokio full features）
+- [x] 单端口扫描函数 `scan_port()` — `tokio::net::TcpStream::connect` + `timeout`
+- [x] 命令行参数解析 — `<目标IP> [起始端口] [结束端口]`
+- [x] 并发扫描 — `tokio::spawn` + `mpsc::channel` 多生产者单消费者模式
+  - 架构：N 个协程并发 `connect` → `tx.send()` → main 线程 `rx.recv()` 汇总
+  - `drop(tx)` 关闭管道信号
+- [ ] **下一步**：限制并发数（`Semaphore`），防止全端口扫描协程爆炸
+- [ ] 后续：SYN 半开扫描、常见服务名映射、超时可配置
+
+**技术栈：** Rust + tokio（异步 TCP + channel + spawn）
+
+**关键文件：** `tcp_sniffer/src/main.rs`（单文件，~70 行）

@@ -51,11 +51,12 @@ pub async fn recent_messages(
     session_id: i32,
     limit: u64,
 ) -> Result<Vec<session_messages::Model>, DbErr> {
-    let sessions = session_messages::Entity::find()
+    let mut messages = session_messages::Entity::find()
         .filter(session_messages::Column::SessionId.eq(session_id))
-        .order_by_asc(session_messages::Column::CreatedAt)
+        .order_by_desc(session_messages::Column::CreatedAt)
         .limit(limit)
         .all(db)
         .await?;
-    Ok(sessions)
+    messages.reverse();
+    Ok(messages)
 }

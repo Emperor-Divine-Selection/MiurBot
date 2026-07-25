@@ -1,12 +1,9 @@
 use crate::{config, store};
+use futures_util::StreamExt;
 use reqwest::Client;
 use sea_orm::DatabaseConnection;
 
 pub async fn handle_chat(db: &DatabaseConnection, message: String) -> Result<String, String> {
-    let api_key = &config::CONFIG.openai_api_key;
-    let base_url = &config::CONFIG.openai_base_url;
-    let model = &config::CONFIG.model;
-    let client = Client::new();
     let user_id = store::user::default_user_id(db)
         .await
         .map_err(|e| e.to_string())?;
@@ -34,30 +31,63 @@ pub async fn handle_chat(db: &DatabaseConnection, message: String) -> Result<Str
 
     messages.push(serde_json::json!({"role":"user","content":message}));
 
+    let resp = call_llm_stream(messages).await?;
+    store::session::save_message(db, session_id, "assistant", &resp)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(resp)
+}
+
+async fn call_llm_stream(messages: Vec<serde_json::Value>) -> Result<String, String> {
     let body = serde_json::json!({
-      "model": model,
-      "messages": messages
+      "model": &config::CONFIG.model,
+      "messages":messages,
+      "stream":true
     });
 
-    println!("发送给 API 的 messages: {:#?}", body);
-
-    let resp = client
-        .post(format!("{}/chat/completions", base_url))
-        .header("Authorization", format!("Bearer {}", api_key))
+    let resp = Client::new()
+        .post(format!(
+            "{}/chat/completions",
+            &config::CONFIG.openai_base_url
+        ))
+        .header(
+            "Authorization",
+            format!("Bearer {}", &config::CONFIG.openai_api_key),
+        )
         .json(&body)
         .send()
         .await
         .map_err(|e| e.to_string())?;
-    let json: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
-    let reply = json["choices"][0]["message"]["content"]
-        .as_str()
-        .unwrap_or("");
 
-    // 存 AI 回复
-    store::session::save_message(db, session_id, "assistant", &reply)
-        .await
-        .map_err(|e| e.to_string())?;
-    // 返回回复
+    let mut stream = resp.bytes_stream();
+    let mut buf: Vec<u8> = Vec::new();
+    let mut reply = String::new();
 
-    Ok(reply.to_string())
+    while let Some(chunk) = stream.next().await {
+        // 从 Result 中提取出字节块（Bytes），出错就转成 String 抛出
+        let chunk = chunk.map_err(|e| e.to_string())?;
+        buf.extend_from_slice(&chunk);
+
+        while let Some(pos) = buf.iter().position(|&b| b == b'\n') {
+            let line_bytes: Vec<u8> = buf.drain(..=pos).collect();
+            let line = String::from_utf8_lossy(&line_bytes);
+            let line = line.trim();
+            if let Some(text) = parse_sse_line(line) {
+                print!("{}", text);
+                reply.push_str(&text);
+            }
+        }
+    }
+    println!();
+    Ok(reply)
+}
+
+fn parse_sse_line(line: &str) -> Option<String> {
+    let data = line.trim().strip_prefix("data:")?.trim();
+    if data == "[DONE]" {
+        return None;
+    }
+    let json: serde_json::Value = serde_json::from_str(data).ok()?;
+    let text = json["choices"][0]["delta"]["content"].as_str()?;
+    Some(text.to_string())
 }
