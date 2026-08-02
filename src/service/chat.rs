@@ -2,8 +2,17 @@ use crate::{config, store};
 use futures_util::StreamExt;
 use reqwest::Client;
 use sea_orm::DatabaseConnection;
+use tokio::sync::mpsc;
 
-pub async fn handle_chat(db: &DatabaseConnection, message: String) -> Result<String, String> {
+pub enum ChatEvent {
+    Delta(String),
+    Done,
+}
+
+pub async fn handle_chat(
+    db: &DatabaseConnection,
+    message: String,
+) -> Result<mpsc::Receiver<ChatEvent>, String> {
     let user_id = store::user::default_user_id(db)
         .await
         .map_err(|e| e.to_string())?;
@@ -31,14 +40,34 @@ pub async fn handle_chat(db: &DatabaseConnection, message: String) -> Result<Str
 
     messages.push(serde_json::json!({"role":"user","content":message}));
 
-    let resp = call_llm_stream(messages).await?;
-    store::session::save_message(db, session_id, "assistant", &resp)
-        .await
-        .map_err(|e| e.to_string())?;
-    Ok(resp)
+    let (tx, rx) = mpsc::channel::<ChatEvent>(32);
+    let db = db.clone();
+
+    tokio::spawn(async move {
+        match call_llm_stream(messages, &tx).await {
+            Ok(reply) => {
+                if let Err(e) =
+                    store::session::save_message(&db, session_id, "assistant", &reply).await
+                {
+                    eprintln!("存回复失败:{e}");
+                }
+            }
+            Err(e) => {
+                let _ = tx
+                    .send(ChatEvent::Delta(format!("\n\n[出错了：{e}]")))
+                    .await;
+            }
+        }
+        let _ = tx.send(ChatEvent::Done).await;
+    });
+    Ok(rx)
 }
 
-async fn call_llm_stream(messages: Vec<serde_json::Value>) -> Result<String, String> {
+async fn call_llm_stream(
+    messages: Vec<serde_json::Value>,
+    tx: &mpsc::Sender<ChatEvent>,
+) -> Result<String, String> {
+    //
     let body = serde_json::json!({
       "model": &config::CONFIG.model,
       "messages":messages,
@@ -73,8 +102,10 @@ async fn call_llm_stream(messages: Vec<serde_json::Value>) -> Result<String, Str
             let line = String::from_utf8_lossy(&line_bytes);
             let line = line.trim();
             if let Some(text) = parse_sse_line(line) {
-                print!("{}", text);
                 reply.push_str(&text);
+                if tx.send(ChatEvent::Delta((text))).await.is_err() {
+                    break;
+                }
             }
         }
     }

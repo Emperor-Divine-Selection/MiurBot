@@ -1,11 +1,16 @@
-use crate::{config, service::chat};
+use crate::config;
+use crate::service::chat::{self, ChatEvent};
 use axum::{
     Extension, Json, Router,
+    response::sse::{Event, Sse},
     routing::{get, post},
 };
+use futures_util::{Stream, StreamExt};
 use sea_orm::DatabaseConnection;
 use serde::Deserialize;
-
+use std::convert::Infallible;
+use tokio::sync::mpsc;
+use tokio_stream::wrappers::ReceiverStream;
 async fn hello_world() -> &'static str {
     "Hello, World!"
 }
@@ -18,11 +23,22 @@ struct ChatRequest {
 async fn chat_handler(
     Extension(db): Extension<DatabaseConnection>,
     Json(request): Json<ChatRequest>,
-) -> String {
-    match chat::handle_chat(&db, request.message).await {
-        Ok(reply) => reply,
-        Err(e) => format!("错误：{}", e),
-    }
+) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
+    let rx = match chat::handle_chat(&db, request.message).await {
+        Ok(rx) => rx,
+        Err(e) => {
+            // 出错也走管道，发给前端
+            let (tx, rx) = mpsc::channel::<ChatEvent>(1);
+            let _ = tx.try_send(ChatEvent::Delta(format!("错误：{e}")));
+            rx
+        }
+    };
+
+    let stream = ReceiverStream::new(rx).map(|event| match event {
+        ChatEvent::Delta(text) => Ok(Event::default().data(text)),
+        ChatEvent::Done => Ok(Event::default().event("done").data("")),
+    });
+    Sse::new(stream)
 }
 
 pub async fn start(db: DatabaseConnection) {

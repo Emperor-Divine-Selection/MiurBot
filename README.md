@@ -1,9 +1,9 @@
 # MiurBot
 
 > AI 个人代理系统 — 渐进式进化项目  
-> 作者：吴笛（织契者）  
+> 作者：Steve · 爱乌  
 > 开始：2026.05.12  
-> 命名：2026.05.14 — Miur（米儿）
+> 命名：2026.05.14 — Miur
 > 技术栈迁移：2026.06.14 — Go → Rust
 
 ---
@@ -450,10 +450,18 @@ Go → Rust 重写，`cargo run --bin` 直接跑。
   - [x] `service/chat.rs` — 对话处理：查历史 → 拼上下文 → reqwest 调 DeepSeek API → 返回回复 → 存消息
   - [x] `adapter/axum.rs` — axum HTTP 服务器，POST /chat 路由，Extension 注入 db
   - [x] 全链路调通：curl → axum → service → store → DeepSeek → 回复 → 存历史 → 下次携带上下文
-  - [ ] 待完成：流式输出（SSE）、JWT 中间件、摘要压缩（20 轮触发）、CORS
+- [x] **流式输出（SSE）全链路**（2026.07.26）
+  - [x] 修复 `recent_messages` 排序 bug：ASC + LIMIT 取到的是最早 N 条 → DESC + reverse 取最近 N 条
+  - [x] reqwest 流式读取：`"stream": true` + `bytes_stream()` + 字节缓冲按行解析（防 TCP 分包劈开多字节字符）
+  - [x] service → adapter 异步管道：`tokio::sync::mpsc` channel + `tokio::spawn` 后台任务，字块边到边转发
+  - [x] adapter SSE 响应：`Sse` + `ReceiverStream`，`ChatEvent` 枚举（Delta/Done）+ `event: done` 结束信号
+  - [x] 流结束后完整回复落库，`curl -N` 端到端验证通过
+- [ ] JWT 登录鉴权（下一步）：登录接口签发 token → 中间件保护 /chat → token 身份取代默认用户
+- [ ] 待完成：摘要压缩（20 轮触发）、CORS
 - [ ] Phase 2 AI 主动记忆
 - [ ] Phase 3 AI 自管理表结构
 
+> 2026.07.26：SSE 全链路打通，前端可逐字渲染。
 > 2026.07.24：全链路端到端调通。
 > 几个月打磨，不急。一条一条织。
 
